@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title></title>
+</head>
+
+<style>
+    * {
+        box-sizing: border-box;
+    }
+    
+    html {
+        padding: 0px;
+        margin: 0px;
+        font-family: monospace;
+        font: system;
+        color: greenyellow;
+        height: 100%;
+    }
+    body {
+        background-color: black;
+        height: 100%;
+        padding: 0px;
+        margin: 0px;
+        display: flex;
+    }
+    .bordered {
+        border: 1px solid;
+        background-color: black;
+        color: greenyellow;
+    }
+    .black {
+        border: 0px solid;
+        background-color: black;
+        color: greenyellow;
+    }
+    .container {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        height: 100%;
+        align-items: stretch;
+    }
+    .main {
+        display: flex;
+        flex-direction: row;
+        flex: 1;
+    }
+    .form {
+        display: flex;
+        flex-direction: row;
+        flex: 1;
+        height: auto;
+    }
+    .chatbox {
+        position: absolute;
+        bottom: 55px;
+        left: 0px;
+        width: 400px;
+        height: 100px;
+        padding: 5px;
+        margin-left: 10px;
+        margin-right: 10px;
+        word-wrap: break-word;
+        flex-wrap: wrap;
+        overflow-y: auto;
+        background-color: transparent;
+    }
+    
+    .userlist {
+        width: 200px;
+        padding: 5px;
+        margin-right: 10px;
+    }
+    .input {
+        display: flex;
+        flex-direction: row;
+        margin: 10px;
+        height: 30px;
+        padding: 5px;
+    }
+    .inputbox {
+        flex: 1;
+        margin-right: 5px;
+        margin-left: 2px;
+        padding-left: 2px;
+    }
+    .usernamebox{
+        padding-left: 5px;
+        height:20px;
+        width: 281px;
+    }
+    .menu {
+        margin: 10px;
+        margin-left: 10px;
+        padding: 5px;
+    }
+    .button {
+        background-color: black;
+        color: greenyellow;
+        border: 1px solid greenyellow;
+        width: auto;
+    }
+    .button:active {
+        background-color: greenyellow;
+        color: black;
+        width: 30px;
+        width: auto;
+    }
+    .canvas{
+        width: 100%;
+        height: 100%;
+    }
+    .flex {
+        display: flex;
+    }
+    .flex-centered{
+        justify-content: center;
+    }
+    .flexfit{
+        flex: 1;
+    }
+    .login_form{
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        width:300px;
+        background-color: rgba(255,255,255,0.2);
+    }
+    ul {
+        list-style-type: none;
+        position: relative;
+        left: -25px;
+    }
+    li:active {
+        color: black;
+        background-color: greenyellow;
+    }
+    .userinput{
+        width: 100%;
+        align-self: center;
+    }
+</style>
+<script src="/socket.io/socket.io.js"></script>  
+<script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+<body>
+    <div class="container flex">
+        <!-- Chatbox -->
+        <div class="main flex flexfit bordered">
+            <div class="chatbox bordered" id="chatbox"></div>
+            <div class="flexfit bordered">
+                <canvas class="bordered flex canvas" id="canvas"></canvas>
+            </div>
+        </div>
+        <!-- Input Box -->
+        <div class="bordered input">
+            <form id="messageform" class="form" name="messageform">
+                >> <input type="text" name="messageinput" class="black inputbox messageinput" id="messageinput">
+                <div><button type="submit" class="bordered button" id="button" name="button" form="messageform">Send</button>
+                </div>
+            </form>
+        </div>
+        <!--Debug-->
+        <button type="button" class="bordered button" id="debug" name="debug">Debug</button>
+        <div class="flex-centered login_form">
+            <form id="login_form" name="login_form">
+                Username: <input type="text" name="login_username" class="inputbox messageinput" id="login_username">
+                Password: <input type="password" name="login_password" class="inputbox messageinput" id="login_password">
+                <div class="Flex center"><button type="submit" class="bordered button" id="login_button" name="login_button" form="login_form">Login</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+<script>
+    
+    let socket = io();
+    let USERNAME = 'tempUser';
+    let CHATLOG = [];
+    let userList = $('#userlist');
+    let USERS = [];
+    let PLAYERLIST = [];
+
+    let keyState = {};
+
+    //GameLoop
+    let Game = (function(){
+        let instance;
+        let canvas = document.getElementById('canvas');
+        let ctx = canvas.getContext('2d');
+
+        let init = function(){
+            update();
+        }
+        let update = function(){
+            clear();
+            input();
+            drawPlayers();
+            window.requestAnimationFrame(update);
+            //update canvas only when message has been recieved in queue
+        }
+        let clear = function(){
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        let drawPlayers = function(){
+            
+            if(PLAYERLIST){
+                if(PLAYERLIST.length > 0){
+                    for (var p in PLAYERLIST){
+                        ctx.fillStyle = 'red';
+                        ctx.fillRect(PLAYERLIST[p].position.x,PLAYERLIST[p].position.y,5,5);
+                    }
+                }
+            }
+        }
+
+        if(!instance){
+            instance = init();
+        }
+    
+        //Public Members
+        return {}
+
+    })();
+
+    let Player = function(x,y,playerName,playerClass,playerRace){
+        this.name = playerName;
+        this.class = playerClass;
+        this.race = playerRace;
+        this.position = {};
+        this.stats = {};
+    }
+    
+    //Events
+    $('#messageform').submit(function(){
+        socket.emit('chatmessage', {
+            message : $('#messageinput').val(),
+            user : USERNAME
+        });
+        $('#messageinput').val('');
+        return false;
+    });
+    
+    $('#userform').submit(function(){
+        socket.emit('usernamechange', {
+            newusername : $('#userinput').val(),
+            oldusername : USERNAME
+        });
+        USERNAME = $('#userinput').val();
+        return false;
+    });
+
+    $('#debug').click(function(){
+        socket.emit('playerCreate', {
+            userID : getCookie('userID'),
+            playerName : "Emelio",
+            playerClass : "Wizard",
+            playerRace : "Human"
+        });
+        socket.emit('requestUpdate');
+        return false;
+    });
+
+    $('#login_form').submit(function(e){
+        socket.emit('login',{
+            username : $('#login_username').val(),
+            password : $('#login_password').val()
+        });
+        return false;
+    });
+
+    //Controls
+
+    window.addEventListener('keydown', function(event){
+       keyState[event.keyCode || event.which] = true;
+    }, true);
+
+    window.addEventListener('keyup', function(event){
+       keyState[event.keyCode || event.which] = false;
+    }, true);
+
+
+    socket.on('loginsuccessful', function(msg){
+        document.cookie = 'userID=' + msg.userID;
+    });
+    
+    socket.on('globalmessage', function(msg){
+        CHATLOG.push(msg);
+        var newMsg = document.createElement('span');
+        newMsg.innerHTML = msg.user + ": " + msg.message + "<br>";
+        document.getElementById('chatbox').appendChild(newMsg);
+    });
+    
+    socket.on('usernamechange', function(msg){
+        var newMsg = document.createElement('span');
+        newMsg.innerHTML = msg.message;
+        document.getElementById('chatbox').appendChild(newMsg);
+        updateUserList(msg.userlist);
+    });
+    
+    socket.on('successfulconnection', function(msg){
+        $('#userlist').empty();
+        USERNAME = msg.username;
+        updateUserList(msg.userlist);
+    });
+    
+    socket.on('newuser', function(msg){
+        var newMsg = document.createElement('span');
+        newMsg.innerHTML = "User " + msg.username + " connected! <br>";
+        document.getElementById('chatbox').appendChild(newMsg);
+        updateUserList(msg.userlist);
+    });
+    
+    socket.on('usernameerror', function(msg){
+        var newMsg = document.createElement('span');
+        newMsg.innerHTML = msg + "<br>";
+        document.getElementById('chatbox').appendChild(newMsg);
+        $('#userinput').val('');
+    });
+    
+    socket.on('userdisconnect', function(msg){
+        var newMsg = document.createElement('span');
+        newMsg.innerHTML = msg.message + "<br>";
+        document.getElementById('chatbox').appendChild(newMsg);
+        updateUserList(msg.userlist);
+        console.log(msg.userlist);
+    });
+
+    //Game Related Messages
+    socket.on('update', function(data){
+        updatePlayerList(data);
+    });
+
+    function input(){
+        //check key statuses
+        if(keyState[87]){ //W
+            socket.emit('move',{
+                'userID' : getCookie('userID'),
+                'x' : 0,
+                'y' : -1
+            });
+        }
+        if(keyState[65]){ //A
+            socket.emit('move',{
+                'userID' : getCookie('userID'),
+                'x' : -1,
+                'y' : 0
+            });
+        }
+        if(keyState[68]){ //D
+            socket.emit('move',{
+                'userID' : getCookie('userID'),
+                'x' : 1,
+                'y' : 0
+            });
+        }
+        if(keyState[83]){ //S
+            socket.emit('move',{
+                'userID' : getCookie('userID'),
+                'x' : 0,
+                'y' : 1
+            });
+        }
+    }
+
+    //Dummy Data
+    
+    function updateUserList(userlist){
+        
+        $('#userlist').empty();
+        
+        USERS = userlist;
+        
+        USERS.forEach(function(data){
+            let listItem = document.createElement('li');
+            listItem.innerHTML = data.username;
+            userList.append(listItem);
+        });
+    }
+
+    function getCookie(cname) {
+        var name = cname + "=";
+        var decodedCookie = decodeURIComponent(document.cookie);
+        var ca = decodedCookie.split(';');
+        for(var i = 0; i <ca.length; i++) {
+            var c = ca[i];
+            while (c.charAt(0) == ' ') {
+                c = c.substring(1);
+            }
+            if (c.indexOf(name) == 0) {
+                return c.substring(name.length, c.length);
+            }
+        }
+        return "";
+    }
+
+    function updatePlayerList(data){
+        PLAYERLIST = data.playerlist;
+
+    }
+    
+    
+</script>
+</html>
