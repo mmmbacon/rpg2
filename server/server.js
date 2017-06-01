@@ -123,7 +123,8 @@ io.on('connection', function(socket){
     });
 
     socket.emit('update', {
-        playerlist : PlayerManager.playerList
+        playerlist : PlayerManager.playerList,
+        playercount : PlayerManager.playerList.length
     });
     
     socket.on('login', function(msg){

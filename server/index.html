@@ -148,10 +148,10 @@
 <body>
     <div class="container flex">
         <!-- Chatbox -->
-        <div class="main flex flexfit bordered">
+        <div class="main flex flexfit">
             <div class="chatbox bordered" id="chatbox"></div>
-            <div class="flexfit bordered">
-                <canvas class="bordered flex canvas" id="canvas"></canvas>
+            <div class="flexfit">
+                <canvas class=" flex canvas" id="canvas"></canvas>
             </div>
         </div>
         <!-- Input Box -->
@@ -172,46 +172,74 @@
                 </div>
             </form>
         </div>
-    </div>
+    </div> <!--HTML -->
 </body>
 <script>
-    
+
     let socket = io();
     let USERNAME = 'tempUser';
     let CHATLOG = [];
     let userList = $('#userlist');
     let USERS = [];
     let PLAYERLIST = [];
+    let PLAYERCOUNT = 0;
+    let PLAYER_OBJECTS = [];
 
     let keyState = {};
 
-    //GameLoop
+    //Main Game Loop
     let Game = (function(){
         let instance;
         let canvas = document.getElementById('canvas');
         let ctx = canvas.getContext('2d');
+        var lastUpdate = Date.now();
+        var ready = false;
+        var loaded = false;
 
         let init = function(){
+            
             update();
         }
         let update = function(){
+
+            checkPlayersLoaded();
+            var now = Date.now();
+            var deltaT = now - lastUpdate; //Save for later
+            lastUpdate = now;
+
             clear();
             input();
             drawPlayers();
+
             window.requestAnimationFrame(update);
-            //update canvas only when message has been recieved in queue
         }
+
         let clear = function(){
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);  
         }
-        let drawPlayers = function(){
-            
+        let checkPlayersLoaded = function(){
             if(PLAYERLIST){
-                if(PLAYERLIST.length > 0){
-                    for (var p in PLAYERLIST){
-                        ctx.fillStyle = 'red';
-                        ctx.fillRect(PLAYERLIST[p].position.x,PLAYERLIST[p].position.y,5,5);
-                    }
+                for (var p in PLAYERLIST){
+                    var player = new Player(
+                        PLAYERLIST[p].position.x, 
+                        PLAYERLIST[p].position.y, 
+                        PLAYERLIST[p].playerID, 
+                        PLAYERLIST[p].name, 
+                        PLAYERLIST[p].class, 
+                        PLAYERLIST[p].race,
+                        PLAYERLIST[p].stats,
+                        true
+                    );
+                    PLAYER_OBJECTS.push(player);
+                }
+            }
+        }   
+        let drawPlayers = function(){
+            if(PLAYER_OBJECTS){
+                for (var p in PLAYER_OBJECTS){
+                    ctx.fillStyle = 'red';
+                    ctx.fillRect(PLAYER_OBJECTS[p].position.x,PLAYER_OBJECTS[p].position.y,10,10);
                 }
             }
         }
@@ -219,18 +247,36 @@
         if(!instance){
             instance = init();
         }
-    
+
         //Public Members
         return {}
-
     })();
 
-    let Player = function(x,y,playerName,playerClass,playerRace){
+    //Classes
+    let Player = function(x,y,playerID, playerName,playerClass,playerRace, playerStats, instantiated){
         this.name = playerName;
         this.class = playerClass;
         this.race = playerRace;
-        this.position = {};
-        this.stats = {};
+        this.position = {
+            'x' : x,
+            'y' : y
+        };
+        this.stats = {
+            'aoe' : playerStats.aoe,
+            'dph' : playerStats.dph,
+            'health' : playerStats.health,
+            'mana' : playerStats.mana,
+            'movespeed' : playerStats.movespeed
+        };
+        this.system = {
+            'instantiated' : instantiated
+        }
+    }
+
+    let NPC = function(){
+    }
+
+    let Item = function(){
     }
     
     //Events
@@ -272,17 +318,19 @@
     });
 
     //Controls
-
     window.addEventListener('keydown', function(event){
-       keyState[event.keyCode || event.which] = true;
+
+        keyState[event.keyCode || event.which] = true;
     }, true);
 
     window.addEventListener('keyup', function(event){
-       keyState[event.keyCode || event.which] = false;
+
+        keyState[event.keyCode || event.which] = false;
     }, true);
 
-
+    //Server Messages
     socket.on('loginsuccessful', function(msg){
+
         document.cookie = 'userID=' + msg.userID;
     });
     
@@ -330,10 +378,43 @@
 
     //Game Related Messages
     socket.on('update', function(data){
+
         updatePlayerList(data);
+
     });
 
+    //Functions
     function input(){
+
+        //Get mouse coords on Canvas
+        let canvas = document.getElementById('canvas');
+        let ctx = canvas.getContext('2d');
+
+        document.captureEvents(Event.MOUSEMOVE);
+        document.onmousemove = getMouseXY;
+
+        let tempX = 0;
+        let tempY = 0;
+
+        function getMouseXY(e){
+            //Get X and Y
+            tempX = e.pageX;
+            tempY = e.pageY;
+
+            //Prevent Negative Values
+            if(tempX < 0 ){tempX = 0}
+            if(tempY < 0 ){tempY = 0}
+
+            console.log("X: " + tempX);
+            console.log("Y: " + tempY);
+
+            return true;
+        }
+
+        function getMoveDirection(){
+
+        }
+
         //check key statuses
         if(keyState[87]){ //W
             socket.emit('move',{
@@ -365,10 +446,8 @@
         }
     }
 
-    //Dummy Data
-    
     function updateUserList(userlist){
-        
+
         $('#userlist').empty();
         
         USERS = userlist;
@@ -381,6 +460,7 @@
     }
 
     function getCookie(cname) {
+
         var name = cname + "=";
         var decodedCookie = decodeURIComponent(document.cookie);
         var ca = decodedCookie.split(';');
@@ -397,8 +477,9 @@
     }
 
     function updatePlayerList(data){
-        PLAYERLIST = data.playerlist;
 
+        PLAYERLIST = data.playerlist;
+        PLAYERCOUNT = data.playercount;
     }
     
     
