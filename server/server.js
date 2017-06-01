@@ -31,13 +31,7 @@ let PlayerManager = (function(){
 
     }
 
-    let move = function(userID, x, y){
-
-        
-
-        function playerFind(playerList){
-            return playerList.userID == userID
-        }
+    let move = function(userID, x, y){ //No Longer used
 
         let p = playerList.find(playerFind);
 
@@ -51,16 +45,50 @@ let PlayerManager = (function(){
         //find player in list and replace?
     }
 
+    let moveTo = function(userID, x, y){
+
+        function playerFind(playerList){
+            return playerList.userID == userID;
+        }
+
+        let p = playerList.find(playerFind);
+
+        if(p != null){
+
+            let currentX = p.position.x;
+            let currentY = p.position.y;
+
+            let angle = Math.atan((x - currentX)/(y - currentY));
+
+            console.log(angle)
+            
+        }
+
+        //find player in list and replace?
+    }
+
+    let rotate = function(userID, clickX, clickY){
+
+        let p = playerList.find(playerFind);
+
+        if(p != null){
+            p.position.rotation = Math.atan((p.position.y - clickY)/(p.position.x - clickX));
+        } //No Longer used
+    }
+
+    
+
     let addNewPlayer = function(playerInfo){
 
-        let p = new Player(
-            10,
-            10,
-            playerInfo.userID, //movement hooks off of this
-            playerInfo.playerName, 
-            playerInfo.playerClass, 
-            playerInfo.playerRace
-        );
+        let p = new Player({
+            'x' : 10,
+            'y' : 10,
+            'rotation' : 0,
+            'userID' : playerInfo.userID, //movement hooks off of this
+            'playerName' : playerInfo.playerName, 
+            'playerClass' : playerInfo.playerClass, 
+            'playerInfo' : playerInfo.playerRace
+        });
 
         this.playerList.push(p);
     }
@@ -70,20 +98,21 @@ let PlayerManager = (function(){
     }
     //Public Members
     return {
-        move,
+        moveTo,
         playerList,
         addNewPlayer
     }
 })();
 
-let Player = function(x,y,userID,playerName,playerClass,playerRace){
-    this.userID = userID;
-    this.name = playerName;
-    this.class = playerClass;
-    this.race = playerRace;
+let Player = function(options){
+    this.userID = options.userID;
+    this.name = options.playerName;
+    this.class = options.playerClass;
+    this.race = options.playerRace;
     this.position = {
-        'x': x,
-        'y': y
+        'x': options.x,
+        'y': options.y,
+        'rotation' : 0
     };
     this.stats = {
         movespeed : 1,
@@ -173,11 +202,10 @@ io.on('connection', function(socket){
     });
 
     //User Movement
-    socket.on('move', function(data){
+    socket.on('moveTo', function(data){
 
-        console.log('user moved ' + data.userID);
         //Do something with data - need a complex array or something and player object/class
-        PlayerManager.move(data.userID, data.x, data.y);
+        PlayerManager.moveTo(data.userID, data.clickX, data.clickY);
         socket.emit('update', {
             playerlist : PlayerManager.playerList
         });

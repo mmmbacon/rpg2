@@ -202,7 +202,6 @@
         }
         let update = function(){
 
-            checkPlayersLoaded();
             var now = Date.now();
             var deltaT = now - lastUpdate; //Save for later
             lastUpdate = now;
@@ -218,28 +217,12 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);  
         }
-        let checkPlayersLoaded = function(){
-            if(PLAYERLIST){
-                for (var p in PLAYERLIST){
-                    var player = new Player(
-                        PLAYERLIST[p].position.x, 
-                        PLAYERLIST[p].position.y, 
-                        PLAYERLIST[p].playerID, 
-                        PLAYERLIST[p].name, 
-                        PLAYERLIST[p].class, 
-                        PLAYERLIST[p].race,
-                        PLAYERLIST[p].stats,
-                        true
-                    );
-                    PLAYER_OBJECTS.push(player);
-                }
-            }
-        }   
+ 
         let drawPlayers = function(){
-            if(PLAYER_OBJECTS){
-                for (var p in PLAYER_OBJECTS){
+            if(PLAYERLIST.length > 0){
+                for (var p in PLAYERLIST){
                     ctx.fillStyle = 'red';
-                    ctx.fillRect(PLAYER_OBJECTS[p].position.x,PLAYER_OBJECTS[p].position.y,10,10);
+                    ctx.fillRect(PLAYERLIST[p].position.x,PLAYERLIST[p].position.y,10,10);
                 }
             }
         }
@@ -251,33 +234,6 @@
         //Public Members
         return {}
     })();
-
-    //Classes
-    let Player = function(x,y,playerID, playerName,playerClass,playerRace, playerStats, instantiated){
-        this.name = playerName;
-        this.class = playerClass;
-        this.race = playerRace;
-        this.position = {
-            'x' : x,
-            'y' : y
-        };
-        this.stats = {
-            'aoe' : playerStats.aoe,
-            'dph' : playerStats.dph,
-            'health' : playerStats.health,
-            'mana' : playerStats.mana,
-            'movespeed' : playerStats.movespeed
-        };
-        this.system = {
-            'instantiated' : instantiated
-        }
-    }
-
-    let NPC = function(){
-    }
-
-    let Item = function(){
-    }
     
     //Events
     $('#messageform').submit(function(){
@@ -391,7 +347,9 @@
         let ctx = canvas.getContext('2d');
 
         document.captureEvents(Event.MOUSEMOVE);
+        document.captureEvents(Event.MOUSEDOWN);
         document.onmousemove = getMouseXY;
+        document.onmousedown = getMouseDown;
 
         let tempX = 0;
         let tempY = 0;
@@ -405,18 +363,39 @@
             if(tempX < 0 ){tempX = 0}
             if(tempY < 0 ){tempY = 0}
 
-            console.log("X: " + tempX);
-            console.log("Y: " + tempY);
+           /* console.log("X: " + tempX);
+            console.log("Y: " + tempY);*/
 
             return true;
         }
 
-        function getMoveDirection(){
+        function getMouseDown(e){
 
+            clickX = e.pageX;
+            clickY = e.pageY;
+
+            //Prevent Negative Values
+            if(clickX < 0 ){clickX = 0}
+            if(clickY < 0 ){clickY = 0}
+
+            console.log("X: " + clickX);
+            console.log("Y: " + clickY);
+
+            moveTo(clickX, clickY);
+
+            return true;
+        }
+
+        function moveTo(clickX, clickY){
+            socket.emit('moveTo',{
+                'userID' : getCookie('userID'),
+                'clickX' : clickX,
+                'clickY' : clickY 
+            })
         }
 
         //check key statuses
-        if(keyState[87]){ //W
+        /*if(keyState[87]){ //W
             socket.emit('move',{
                 'userID' : getCookie('userID'),
                 'x' : 0,
@@ -443,7 +422,7 @@
                 'x' : 0,
                 'y' : 1
             });
-        }
+        }*/
     }
 
     function updateUserList(userlist){
